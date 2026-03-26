@@ -1,0 +1,59 @@
+# ============================================================
+# Beymen Price Alert Bot - Kullanıcı Konfigürasyonu
+# ============================================================
+
+user:
+  # Alert maillerinin gönderileceği adres
+  email: "kullanici@gmail.com"
+
+  # Takip edilecek bedenler (harf ve/veya sayısal)
+  sizes:
+    letter: ["S", "M", "L", "XL"]        # giyim harf bedenleri
+    numeric: ["40", "42", "44", "46"]     # pantolon/ayakkabı sayısal bedenleri
+
+alert:
+  # Bu yüzdenin altındaki indirimler için mail atılmaz
+  min_discount_percent: 30
+
+  # Kaç saatte bir kontrol yapılsın
+  check_interval_hours: 6
+
+  # Aynı ürün için tekrar mail atmak için gereken minimum süre (saat)
+  cooldown_hours: 24
+
+  # Her sabah özet mail gönderilsin mi?
+  daily_summary: true
+  daily_summary_hour: 9   # Saat 09:00'da
+
+  # Yeni ürün (indirim olmasa bile) geldiğinde bildir?
+  notify_new_products: false
+
+# Takip edilecek markalar
+brands:
+  - "Stone Island"
+  - "Moncler"
+  - "Dsquared2"
+  - "Off-White"
+  - "Balenciaga"
+  - "Givenchy"
+
+# Takip edilecek ürün kategorileri (Beymen'deki kategori adları)
+categories:
+  - "TSHIRT"
+  - "SWEATSHIRT"
+  - "PANTOLON"
+  - "MONT"
+  - "CEKET"
+  - "POLO YAKA"
+
+# Manuel ürün takibi (belirli ürün URL'leri - marka/kategori filtresi olmadan)
+wishlist:
+  # - "https://www.beymen.com/tr/ornek-urun-url"
+
+# E-posta ayarları
+email:
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  # Gönderici adres (genellikle kendi Gmail adresin)
+  sender_email: "gonderen@gmail.com"
+  # Şifre .env dosyasında EMAIL_PASSWORD olarak tutulur
