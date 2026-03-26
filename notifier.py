@@ -37,6 +37,7 @@ _ALERT_CARD = """
           <p style="margin:0 0 6px;font-size:12px;color:#555;">
             <strong>Stokta bedenler:</strong> {sizes}
           </p>
+          {low_stock_badge}
           {trend_row}
           <p style="margin:8px 0 0;">
             <a href="{url}"
@@ -56,6 +57,15 @@ _ALERT_CARD = """
 _TREND_ROW = """
 <p style="margin:0 0 4px;font-size:12px;color:#888;">
   Fiyat trendi (son 7 kontrol): <span style="font-family:monospace;">{trend}</span>
+</p>
+"""
+
+_LOW_STOCK_BADGE = """
+<p style="margin:0 0 6px;">
+  <span style="background:#e67e22;color:#fff;font-size:11px;font-weight:700;
+               padding:3px 8px;border-radius:4px;">
+    ⚡ Son {stock} ürün kaldı!
+  </span>
 </p>
 """
 
@@ -250,6 +260,10 @@ def send_alert_email(
     for item in alert_items:
         trend_html = _TREND_ROW.format(trend=item["trend"]) if item.get("trend") else ""
         sizes_str = ", ".join(item.get("matching_sizes") or item.get("available_sizes", []))
+        low_stock_html = (
+            _LOW_STOCK_BADGE.format(stock=item["stock"])
+            if item.get("low_stock") else ""
+        )
         cards_html += _ALERT_CARD.format(
             img_tag=_img_tag(item.get("image_url", "")),
             brand=item.get("brand", ""),
@@ -261,6 +275,7 @@ def send_alert_email(
             ),
             discount=item.get("discount_rate", 0),
             sizes=sizes_str or "—",
+            low_stock_badge=low_stock_html,
             trend_row=trend_html,
         )
 

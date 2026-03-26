@@ -157,6 +157,9 @@ def _extract_products(data: dict, user_sizes: list[str]) -> list[dict]:
                 first = images[0]
                 image_url = first.get("url") or first.get("Url") or ""
 
+            # Stok adedi (varsa)
+            stock_count = int(p.get("stock") or p.get("Stock") or 0)
+
             results.append({
                 "id": product_id,
                 "name": name,
@@ -167,6 +170,7 @@ def _extract_products(data: dict, user_sizes: list[str]) -> list[dict]:
                 "price": actual_price,
                 "original_price": original_price,
                 "discount_rate": discount_rate,
+                "stock": stock_count,
                 "available_sizes": in_stock_sizes,
                 "matching_sizes": matching_sizes,
             })

@@ -26,6 +26,7 @@ import database
 import scraper
 import tracker
 import notifier
+import report
 
 # ------------------------------------------------------------------ #
 # LOGGING
@@ -132,17 +133,23 @@ def run_check(config: dict, email_password: str, dry_run: bool = False):
         if dry_run:
             logger.info("[DRY-RUN] Mail atılmıyor. Alert ürünler:")
             for a in alerts:
+                low = " ⚡ SON STOK!" if a.get("low_stock") else ""
                 logger.info(
-                    "  • %s — %s | -%d%% | %s TL → %s TL | Bedenler: %s",
+                    "  • %s — %s | -%d%% | %s TL → %s TL | Bedenler: %s%s",
                     a["brand"], a["name"], a["discount_rate"],
                     a.get("ref_original", "?"), a["price"],
                     ", ".join(a.get("matching_sizes") or []),
+                    low,
                 )
         else:
             notifier.send_alert_email(alerts, config, email_password)
             tracker.mark_all_alerted(alerts)
     else:
         logger.info("Bu döngüde alert koşulları karşılanmadı.")
+
+    # Her kontrol sonunda HTML raporu güncelle
+    low_stock_threshold = config.get("alert", {}).get("low_stock_threshold", 3)
+    report.generate_report(low_stock_threshold=low_stock_threshold)
 
     logger.info("Kontrol tamamlandı.")
 
@@ -244,20 +251,31 @@ def main():
         action="store_true",
         help="Günlük özet mailini hemen gönder",
     )
+    parser.add_argument(
+        "--report",
+        action="store_true",
+        help="report.html raporunu hemen oluştur (tarama yapmaz)",
+    )
     args = parser.parse_args()
 
     config = load_config()
     validate_config(config)
 
-    # dry-run modunda şifre gerekmez
-    if args.dry_run:
-        email_password = "dry-run-mode"
+    # dry-run ve report modunda şifre gerekmez
+    if args.dry_run or args.report:
+        email_password = "no-email-mode"
     else:
         email_password = load_email_password()
 
     database.init_db()
 
-    if args.dry_run:
+    if args.report:
+        logger.info("RAPOR modu — report.html oluşturuluyor")
+        low_stock_threshold = config.get("alert", {}).get("low_stock_threshold", 3)
+        report.generate_report(low_stock_threshold=low_stock_threshold)
+        logger.info("Rapor hazır: report.html")
+
+    elif args.dry_run:
         logger.info("DRY-RUN modu — mail gönderilmeyecek")
         run_check(config, email_password, dry_run=True)
 

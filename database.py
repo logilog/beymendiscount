@@ -30,6 +30,7 @@ def init_db():
                 last_price REAL,
                 last_discount_rate INTEGER DEFAULT 0,
                 available_sizes TEXT DEFAULT '[]',
+                stock INTEGER DEFAULT 0,
                 first_seen TEXT NOT NULL,
                 last_seen TEXT NOT NULL,
                 last_alerted TEXT
@@ -42,6 +43,7 @@ def init_db():
                 original_price REAL,
                 discount_rate INTEGER DEFAULT 0,
                 available_sizes TEXT DEFAULT '[]',
+                stock INTEGER DEFAULT 0,
                 checked_at TEXT NOT NULL,
                 FOREIGN KEY (product_id) REFERENCES products(id)
             );
@@ -49,6 +51,15 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_price_history_product
                 ON price_history(product_id, checked_at);
         """)
+        # Mevcut DB'ye stock sütunu ekle (migration)
+        try:
+            conn.execute("ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE price_history ADD COLUMN stock INTEGER DEFAULT 0")
+        except Exception:
+            pass
     logger.info("Veritabanı hazır: %s", DB_PATH)
 
 
@@ -66,6 +77,7 @@ def upsert_product(product: dict) -> dict:
         ).fetchone()
 
         sizes_json = json.dumps(product.get("available_sizes", []))
+        stock = int(product.get("stock") or 0)
 
         if existing is None:
             # Yeni ürün
@@ -73,8 +85,8 @@ def upsert_product(product: dict) -> dict:
                 INSERT INTO products
                     (id, name, brand, category, url, image_url,
                      original_price, last_price, last_discount_rate,
-                     available_sizes, first_seen, last_seen)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     available_sizes, stock, first_seen, last_seen)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 pid,
                 product["name"],
@@ -86,6 +98,7 @@ def upsert_product(product: dict) -> dict:
                 product["price"],
                 product.get("discount_rate", 0),
                 sizes_json,
+                stock,
                 now,
                 now,
             ))
@@ -102,7 +115,7 @@ def upsert_product(product: dict) -> dict:
                 UPDATE products SET
                     name = ?, url = ?, image_url = ?,
                     last_price = ?, last_discount_rate = ?,
-                    available_sizes = ?, last_seen = ?
+                    available_sizes = ?, stock = ?, last_seen = ?
                 WHERE id = ?
             """, (
                 product["name"],
@@ -111,6 +124,7 @@ def upsert_product(product: dict) -> dict:
                 product["price"],
                 product.get("discount_rate", 0),
                 sizes_json,
+                stock,
                 now,
                 pid,
             ))
@@ -127,14 +141,15 @@ def _add_history(conn: sqlite3.Connection, pid: str, product: dict, now: str):
     sizes_json = json.dumps(product.get("available_sizes", []))
     conn.execute("""
         INSERT INTO price_history
-            (product_id, price, original_price, discount_rate, available_sizes, checked_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+            (product_id, price, original_price, discount_rate, available_sizes, stock, checked_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
         pid,
         product["price"],
         product.get("original_price"),
         product.get("discount_rate", 0),
         sizes_json,
+        int(product.get("stock") or 0),
         now,
     ))
 
@@ -163,7 +178,7 @@ def get_price_history(product_id: str, limit: int = 14) -> list[dict]:
     """Son N kayıt için fiyat geçmişini döndür."""
     with get_connection() as conn:
         rows = conn.execute("""
-            SELECT price, original_price, discount_rate, available_sizes, checked_at
+            SELECT price, original_price, discount_rate, available_sizes, stock, checked_at
             FROM price_history
             WHERE product_id = ?
             ORDER BY checked_at DESC
@@ -180,4 +195,14 @@ def get_all_discounted(min_discount: int = 0) -> list[dict]:
             WHERE last_discount_rate >= ?
             ORDER BY last_discount_rate DESC
         """, (min_discount,)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_all_products() -> list[dict]:
+    """Tüm takip edilen ürünleri döndür (rapor için)."""
+    with get_connection() as conn:
+        rows = conn.execute("""
+            SELECT * FROM products
+            ORDER BY last_discount_rate DESC, brand, name
+        """).fetchall()
         return [dict(r) for r in rows]

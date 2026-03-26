@@ -28,6 +28,9 @@ alert:
   # Yeni ürün (indirim olmasa bile) geldiğinde bildir?
   notify_new_products: false
 
+  # Bu adet ve altı stok için "Son X ürün kaldı!" uyarısı göster (0 = kapat)
+  low_stock_threshold: 3
+
 # Takip edilecek markalar
 brands:
   - "Stone Island"

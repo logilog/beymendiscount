@@ -51,6 +51,7 @@ def process_products(
     min_discount: int = alert_cfg.get("min_discount_percent", 30)
     cooldown_hours: int = alert_cfg.get("cooldown_hours", 24)
     notify_new: bool = alert_cfg.get("notify_new_products", False)
+    low_stock_threshold: int = alert_cfg.get("low_stock_threshold", 3)
 
     alerts: list[dict] = []
 
@@ -69,6 +70,9 @@ def process_products(
         )
 
         discount_rate: int = product.get("discount_rate", 0)
+        stock: int = int(product.get("stock") or 0)
+        # stock=0 genellikle "bilinmiyor" anlamına gelir (Beymen her zaman vermez)
+        low_stock: bool = 0 < stock <= low_stock_threshold
 
         # Cooldown kontrolü
         if _is_cooldown_active(db_row.get("last_alerted"), cooldown_hours):
@@ -103,6 +107,8 @@ def process_products(
             "ref_original": ref_original,
             "trend": trend,
             "reason": reason,
+            "low_stock": low_stock,
+            "stock": stock,
         }
         alerts.append(alert_item)
         logger.info(
