@@ -1,4 +1,3 @@
-import re
 import json
 import time
 import random
@@ -24,17 +23,6 @@ HEADERS = {
     "Referer": "https://www.beymen.com/",
 }
 
-# Regex: BEYMEN.productListMain = {...}
-_PRODUCT_LIST_RE = re.compile(
-    r'BEYMEN\.productListMain\s*=\s*(\{.*?\});',
-    re.DOTALL,
-)
-
-# Fallback: products array içeren herhangi bir JSON bloğu
-_PRODUCT_LIST_RE2 = re.compile(
-    r'productListMain\s*=\s*(\{[^;]{50,}\})\s*;',
-    re.DOTALL,
-)
 
 
 def _build_url(brand: str, category: str, page: int = 1) -> str:
@@ -76,18 +64,65 @@ def _fetch_page(session: requests.Session, url: str) -> str | None:
     return None
 
 
+def _extract_json_object(html: str, marker: str) -> dict | None:
+    """
+    HTML içinde `marker` stringini bulur, ardından gelen JSON objesini
+    brace-counting yöntemiyle eksiksiz çıkarır.
+    Regex'ten daha güvenilir — iç içe objeler/arrayler de doğru parse edilir.
+    """
+    idx = html.find(marker)
+    if idx == -1:
+        return None
+    brace_start = html.find('{', idx + len(marker))
+    if brace_start == -1:
+        return None
+
+    depth = 0
+    in_string = False
+    escape_next = False
+
+    for i in range(brace_start, len(html)):
+        ch = html[i]
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == '\\' and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == '{':
+            depth += 1
+        elif ch == '}':
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(html[brace_start:i + 1])
+                except json.JSONDecodeError as exc:
+                    logger.debug("JSON parse hatası: %s", exc)
+                    return None
+    return None
+
+
 def _parse_product_list(html: str) -> dict | None:
     """HTML içinden productListMain JSON objesini çıkar."""
-    match = _PRODUCT_LIST_RE.search(html)
-    if not match:
-        match = _PRODUCT_LIST_RE2.search(html)
-    if not match:
-        return None
-    try:
-        return json.loads(match.group(1))
-    except json.JSONDecodeError as exc:
-        logger.debug("JSON parse hatası: %s", exc)
-        return None
+    # Önce tam marker ile dene
+    data = _extract_json_object(html, "BEYMEN.productListMain =")
+    if data and isinstance(data.get("products"), list):
+        return data
+    # Fallback: window. prefix'li versiyon
+    data = _extract_json_object(html, "window.BEYMEN.productListMain =")
+    if data and isinstance(data.get("products"), list):
+        return data
+    # Son çare: sadece "productListMain =" işareti
+    data = _extract_json_object(html, "productListMain =")
+    if data and isinstance(data.get("products"), list):
+        return data
+    logger.debug("productListMain bulunamadı veya products listesi yok")
+    return None
 
 
 def _extract_products(data: dict, user_sizes: list[str]) -> list[dict]:
