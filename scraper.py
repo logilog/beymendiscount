@@ -24,15 +24,15 @@ HEADERS = {
     "Referer": "https://www.beymen.com/",
 }
 
-# Regex: window.BEYMEN.productListMain = {...};
+# Regex: BEYMEN.productListMain = {...}
 _PRODUCT_LIST_RE = re.compile(
-    r'window\.BEYMEN\.productListMain\s*=\s*(\{.*?\});',
+    r'BEYMEN\.productListMain\s*=\s*(\{.*?\});',
     re.DOTALL,
 )
 
-# Fallback: daha kısa versiyonu
+# Fallback: products array içeren herhangi bir JSON bloğu
 _PRODUCT_LIST_RE2 = re.compile(
-    r'productListMain\s*[:=]\s*(\{.*?"products"\s*:\s*\[.*?\]\s*.*?\})',
+    r'productListMain\s*=\s*(\{[^;]{50,}\})\s*;',
     re.DOTALL,
 )
 
