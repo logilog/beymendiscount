@@ -5,6 +5,7 @@ Tarayıcıda açılarak takip edilen tüm ürünlerin
 fiyat geçmişi ve indirim durumu görülebilir.
 """
 
+import re
 import json
 import logging
 from datetime import datetime
@@ -214,8 +215,8 @@ def _fmt_dt(iso: str | None) -> str:
 def _img_tag(image_url: str, name: str) -> str:
     if not image_url:
         return f'<div class="card-img-placeholder">👕</div>'
-    import re
-    resized = re.sub(r'/mnresize/\d+/\d+/', '/mnresize/400/520/', image_url)
+    resized = image_url.replace("{width}", "400").replace("{height}", "520")
+    resized = re.sub(r'/mnresize/\d+/\d+/', '/mnresize/400/520/', resized)
     return f'<img class="card-img" src="{resized}" alt="{name}" loading="lazy">'
 
 

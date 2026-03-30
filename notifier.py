@@ -1,5 +1,9 @@
+import re
 import smtplib
 import logging
+import urllib.request
+import urllib.parse
+import json as _json
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -200,11 +204,9 @@ def _fmt_price(price: float | None) -> str:
 def _img_tag(image_url: str) -> str:
     if not image_url:
         return '<div style="width:100px;height:130px;background:#f0f0f0;border-radius:4px;"></div>'
-    # Beymen CDN URL'sini 150x195 boyutuna ayarla
-    resized = image_url
-    if "mnresize" in image_url:
-        import re
-        resized = re.sub(r'/mnresize/\d+/\d+/', '/mnresize/150/195/', image_url)
+    # CDN placeholder'larını ve boyutlandırmayı düzelt
+    resized = image_url.replace("{width}", "150").replace("{height}", "195")
+    resized = re.sub(r'/mnresize/\d+/\d+/', '/mnresize/150/195/', resized)
     return (
         f'<img src="{resized}" width="100" height="130" alt="ürün"'
         f' style="border-radius:4px;object-fit:cover;display:block;">'
@@ -352,3 +354,61 @@ def send_daily_summary(
     except Exception as exc:
         logger.error("Günlük özet maili gönderilemedi: %s", exc)
         raise
+
+
+# ------------------------------------------------------------------ #
+# TELEGRAM BİLDİRİMİ (OPSİYONEL)
+# ------------------------------------------------------------------ #
+
+def send_telegram_alerts(alert_items: list[dict], config: dict):
+    """
+    Telegram Bot API üzerinden bildirim gönder.
+    config.yaml'da telegram.bot_token ve telegram.chat_id tanımlıysa çalışır.
+    """
+    tg = config.get("telegram", {})
+    bot_token = tg.get("bot_token", "")
+    chat_id = str(tg.get("chat_id", ""))
+
+    if not bot_token or not chat_id or bot_token == "BOT_TOKEN_BURAYA":
+        return  # Telegram yapılandırılmamış, sessizce atla
+
+    for item in alert_items:
+        sizes_str = ", ".join(item.get("matching_sizes") or item.get("available_sizes", []))
+        jump_line = ""
+        if item.get("discount_jumped"):
+            jump_line = f"\n⬆️ İndirim arttı: %{item.get('prev_discount', 0)} → %{item.get('discount_rate', 0)}"
+        low_line = f"\n⚡ Son {item['stock']} ürün kaldı!" if item.get("low_stock") else ""
+        trend = item.get("trend", "")
+        trend_line = f"\nTrend: {trend}" if trend else ""
+
+        text = (
+            f"🏷️ *Beymen İndirim Alarmı*\n\n"
+            f"*{item.get('brand', '')}* — {item.get('name', '')}\n"
+            f"~~{_fmt_price(item.get('ref_original') or item.get('original_price'))} TL~~ "
+            f"→ *{_fmt_price(item.get('price'))} TL*\n"
+            f"📉 -%{item.get('discount_rate', 0)} indirim"
+            f"{jump_line}{low_line}\n"
+            f"📦 Bedenler: {sizes_str or '—'}"
+            f"{trend_line}\n\n"
+            f"[Ürüne Git]({item.get('url', '')})"
+        )
+
+        payload = _json.dumps({
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": False,
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status == 200:
+                    logger.info("Telegram bildirimi gönderildi: %s", item.get("name"))
+        except Exception as exc:
+            logger.error("Telegram bildirimi gönderilemedi: %s", exc)

@@ -52,6 +52,8 @@ def process_products(
     cooldown_hours: int = alert_cfg.get("cooldown_hours", 24)
     notify_new: bool = alert_cfg.get("notify_new_products", False)
     low_stock_threshold: int = alert_cfg.get("low_stock_threshold", 3)
+    # İndirim bu kadar artarsa cooldown'u yoksay (ör. %20 → %50 geçişi)
+    discount_jump_threshold: int = alert_cfg.get("discount_jump_threshold", 15)
 
     alerts: list[dict] = []
 
@@ -70,24 +72,36 @@ def process_products(
         )
 
         discount_rate: int = product.get("discount_rate", 0)
+        prev_discount: int = int(db_row.get("last_discount_rate") or 0)
         stock: int = int(product.get("stock") or 0)
         # stock=0 genellikle "bilinmiyor" anlamına gelir (Beymen her zaman vermez)
         low_stock: bool = 0 < stock <= low_stock_threshold
+        # İndirim önemli ölçüde arttıysa cooldown'u bypass et
+        discount_jumped: bool = (
+            discount_rate >= min_discount
+            and (discount_rate - prev_discount) >= discount_jump_threshold
+        )
 
-        # Cooldown kontrolü
+        # Cooldown kontrolü — indirim önemli atladıysa bypass
         if _is_cooldown_active(db_row.get("last_alerted"), cooldown_hours):
-            logger.debug(
-                "Cooldown aktif, atlanıyor: %s (%s)",
-                product["name"], product["id"],
-            )
-            continue
+            if discount_jumped:
+                logger.info(
+                    "İndirim atladı (%d%%→%d%%), cooldown bypass: %s",
+                    prev_discount, discount_rate, product["name"],
+                )
+            else:
+                logger.debug(
+                    "Cooldown aktif, atlanıyor: %s (%s)",
+                    product["name"], product["id"],
+                )
+                continue
 
         should_alert = False
         reason = ""
 
         if discount_rate >= min_discount:
             should_alert = True
-            reason = "discount"
+            reason = "discount_jump" if discount_jumped else "discount"
         elif notify_new and is_new:
             should_alert = True
             reason = "new_product"
@@ -109,6 +123,8 @@ def process_products(
             "reason": reason,
             "low_stock": low_stock,
             "stock": stock,
+            "prev_discount": prev_discount,
+            "discount_jumped": discount_jumped,
         }
         alerts.append(alert_item)
         logger.info(

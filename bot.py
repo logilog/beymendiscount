@@ -122,6 +122,9 @@ def run_check(config: dict, email_password: str, dry_run: bool = False):
 
     if not products:
         logger.info("Belirtilen filtrelere uygun ürün bulunamadı.")
+        # Raporu yine de güncelle (mevcut DB verisiyle)
+        low_stock_threshold = config.get("alert", {}).get("low_stock_threshold", 3)
+        report.generate_report(low_stock_threshold=low_stock_threshold)
         return
 
     # 2. İşle ve alert listesi oluştur
@@ -143,6 +146,7 @@ def run_check(config: dict, email_password: str, dry_run: bool = False):
                 )
         else:
             notifier.send_alert_email(alerts, config, email_password)
+            notifier.send_telegram_alerts(alerts, config)
             tracker.mark_all_alerted(alerts)
     else:
         logger.info("Bu döngüde alert koşulları karşılanmadı.")

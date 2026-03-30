@@ -31,6 +31,10 @@ alert:
   # Bu adet ve altı stok için "Son X ürün kaldı!" uyarısı göster (0 = kapat)
   low_stock_threshold: 3
 
+  # İndirim bu kadar puan artarsa cooldown'u atla ve tekrar bildir
+  # (ör. %20'deyken %40'a çıktıysa, 15 puanlık artış cooldown'u bypass eder)
+  discount_jump_threshold: 15
+
 # Takip edilecek markalar
 brands:
   - "Stone Island"
@@ -52,6 +56,13 @@ categories:
 # Manuel ürün takibi (belirli ürün URL'leri - marka/kategori filtresi olmadan)
 wishlist:
   # - "https://www.beymen.com/tr/ornek-urun-url"
+
+# Telegram bildirimi (opsiyonel — istemiyorsan bu bölümü olduğu gibi bırak)
+# Kurulum: t.me/BotFather → /newbot → token al
+#           t.me/userinfobot → chat_id öğren
+telegram:
+  bot_token: "BOT_TOKEN_BURAYA"   # ← BotFather'dan aldığın token
+  chat_id: "CHAT_ID_BURAYA"       # ← kendi chat ID'n
 
 # E-posta ayarları
 email:

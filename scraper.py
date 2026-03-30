@@ -134,6 +134,10 @@ def _extract_products(data: dict, user_sizes: list[str]) -> list[dict]:
     results = []
 
     for p in raw_products:
+        # Beymen bazen products listesi içine string ID'ler koyabilir
+        if not isinstance(p, dict):
+            logger.debug("Ürün dict değil, atlanıyor: %r", p)
+            continue
         try:
             # Stokta olan bedenleri bul
             sizes = p.get("sizes") or p.get("Sizes") or []
@@ -189,8 +193,13 @@ def _extract_products(data: dict, user_sizes: list[str]) -> list[dict]:
             images = p.get("images") or p.get("Images") or []
             image_url = ""
             if images:
-                first = images[0]
-                image_url = first.get("url") or first.get("Url") or ""
+                first = images[0] if isinstance(images[0], dict) else {}
+                raw_img = first.get("url") or first.get("Url") or ""
+                # CDN URL'deki {width}/{height} placeholder'larını gerçek boyutla doldur
+                image_url = (
+                    raw_img.replace("{width}", "600").replace("{height}", "780")
+                    if raw_img else ""
+                )
 
             # Stok adedi (varsa)
             stock_count = int(p.get("stock") or p.get("Stock") or 0)
@@ -210,7 +219,7 @@ def _extract_products(data: dict, user_sizes: list[str]) -> list[dict]:
                 "matching_sizes": matching_sizes,
             })
 
-        except (KeyError, TypeError, ValueError) as exc:
+        except (KeyError, TypeError, ValueError, AttributeError) as exc:
             logger.debug("Ürün parse hatası: %s", exc)
             continue
 
