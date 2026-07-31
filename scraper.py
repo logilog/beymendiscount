@@ -190,16 +190,21 @@ def _extract_products(data: dict, user_sizes: list[str]) -> list[dict]:
             ).strip()
             url = (PRODUCT_URL_BASE + "/" + slug.lstrip("/")) if slug else ""
 
+            # Beymen `images` listesini düz string olarak veriyor, ancak
+            # geçmişte {"url": ...} formatı da görüldü — ikisini de destekle
             images = p.get("images") or p.get("Images") or []
-            image_url = ""
+            raw_img = ""
             if images:
-                first = images[0] if isinstance(images[0], dict) else {}
-                raw_img = first.get("url") or first.get("Url") or ""
-                # CDN URL'deki {width}/{height} placeholder'larını gerçek boyutla doldur
-                image_url = (
-                    raw_img.replace("{width}", "600").replace("{height}", "780")
-                    if raw_img else ""
-                )
+                first = images[0]
+                if isinstance(first, str):
+                    raw_img = first
+                elif isinstance(first, dict):
+                    raw_img = first.get("url") or first.get("Url") or ""
+            # CDN URL'deki {width}/{height} placeholder'larını gerçek boyutla doldur
+            image_url = (
+                raw_img.replace("{width}", "600").replace("{height}", "780")
+                if raw_img else ""
+            )
 
             # Stok adedi (varsa)
             stock_count = int(p.get("stock") or p.get("Stock") or 0)

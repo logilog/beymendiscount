@@ -41,7 +41,7 @@ Pipeline for one check (`bot.run_check`):
 
 Beymen has no public API. `scraper.py` fetches the search HTML and pulls out the embedded `BEYMEN.productListMain = {...}` object using `_extract_json_object`, which walks braces while tracking string/escape state. Regex was tried and abandoned (see git history) — nested objects break it. `_parse_product_list` tries three markers in order (`BEYMEN.productListMain =`, `window.BEYMEN.productListMain =`, bare `productListMain =`), so a site-side rename usually only needs a fourth fallback here.
 
-Beymen's JSON mixes camelCase and PascalCase keys, and the `products` array sometimes contains bare strings instead of objects. `_extract_products` defends against both — preserve the `p.get("x") or p.get("X")` pattern and the `isinstance(p, dict)` guard when touching it.
+Beymen's JSON mixes camelCase and PascalCase keys, and the `products` array sometimes contains bare strings instead of objects. `_extract_products` defends against both — preserve the `p.get("x") or p.get("X")` pattern and the `isinstance(p, dict)` guard when touching it. The `images` field is currently a list of plain URL strings (it used to be a list of `{"url": ...}` dicts); both shapes are handled, and dropping either silently empties `image_url` for every product.
 
 **Size filtering happens in the scraper, not the tracker.** A product whose `matching_sizes` is empty is dropped before it ever reaches the database, so the DB only contains products that were once available in the user's sizes.
 
